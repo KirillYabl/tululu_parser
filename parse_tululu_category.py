@@ -177,8 +177,6 @@ if __name__ == '__main__':
                 skip_imgs=namespace.skip_imgs
             )
             books_info.append(book_info)
-        except requests.exceptions.HTTPError:
-            pass
         except RedirectError:
             redirect_errors += 1
 

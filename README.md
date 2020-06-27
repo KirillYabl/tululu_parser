@@ -35,6 +35,28 @@ You can get category_id from [tululu.org](http://tululu.org/), the page with boo
 
 `--json_path` - File name or file path to the file in which the result of the parsing will be written. 
 If the file name does not exist, it will be created. If the folder in file path does not exist, an error will occur.
+File have next structure:
+```json
+[
+    {
+        "title": "BOOK_TITLE",
+        "author": "AUTHOR",
+        "image_src": "IMAGE_FILEPATH",
+        "book_path": "BOOK_FILEPATH",
+        "comments": ["COMMENT", ..., "COMMENT"],
+        "genres": ["GENRE", ..., "GENRE"]
+    },
+    ...,
+    {
+        "title": "BOOK_TITLE",
+        "author": "AUTHOR",
+        "image_src": "IMAGE_FILEPATH",
+        "book_path": "BOOK_FILEPATH",
+        "comments": ["COMMENT", ..., "COMMENT"],
+        "genres": ["GENRE", ..., "GENRE"]
+    }
+]
+```
 
 `--help` - Description and help of program
 
