@@ -58,7 +58,7 @@ def get_tululu_category_page_links(category_id, page_num):
     main_site_url = 'http://tululu.org'
     urls = []
     category_page_url = urllib.parse.urljoin(main_site_url, f'l{category_id}/{page_num}')
-    response = requests.get(category_page_url + '/', allow_redirects=False)
+    response = requests.get(category_page_url, allow_redirects=False)
     tululu_raise_for_status(response)
 
     soup = BeautifulSoup(response.text, 'lxml')
@@ -66,7 +66,7 @@ def get_tululu_category_page_links(category_id, page_num):
     books = soup.select('div#content table.d_book')
     for book_table in books:
         url_name = book_table.select_one('a')['href']
-        url = urllib.parse.urljoin(main_site_url, url_name)
+        url = urllib.parse.urljoin(category_page_url, url_name)
         urls.append(url)
 
     return urls
@@ -93,7 +93,7 @@ def parse_book(book_url, books_folder_name, images_folder_name, skip_txt, skip_i
     author = author.strip()
 
     image_src = soup.select_one('div.bookimage img')['src']
-    image_path = urllib.parse.urljoin(main_site_url, image_src)
+    image_path = urllib.parse.urljoin(book_url, image_src)
     image_filename = image_path.split('/')[-1]
 
     image_filepath = ''
