@@ -16,6 +16,14 @@ class RedirectError(requests.exceptions.BaseHTTPError):
     pass
 
 
+def tululu_raise_for_status(response):
+    response.raise_for_status()
+    group_or_status_code = response.status_code // 100
+    is_redirect = group_or_status_code == 3
+    if is_redirect:
+        raise RedirectError
+
+
 def download_file(url, filename, folder):
     """Download file from url.
 
@@ -25,10 +33,7 @@ def download_file(url, filename, folder):
     :return: str, path to the file where the file will be saved.
     """
     response = requests.get(url, allow_redirects=False)
-    response.raise_for_status()
-    # redirect isn't reason for raise in general but reason in this case
-    if response.status_code == 302:
-        raise RedirectError(f'redirect when try to load book. URL: {url} filename: {filename}')
+    tululu_raise_for_status(response)
 
     sanitized_folder = pathvalidate.sanitize_filepath(folder)
     os.makedirs(sanitized_folder, exist_ok=True)
@@ -54,7 +59,7 @@ def get_tululu_category_page_links(category_id, page_num):
     urls = []
     category_page_url = urllib.parse.urljoin(main_site_url, f'l{category_id}/{page_num}')
     response = requests.get(category_page_url + '/', allow_redirects=False)
-    response.raise_for_status()
+    tululu_raise_for_status(response)
 
     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -80,9 +85,7 @@ def parse_book(book_url, books_folder_name, images_folder_name, skip_txt, skip_i
     main_site_url = 'http://tululu.org'
     book_id = book_url.split('/')[-2][1:]
     response = requests.get(book_url, allow_redirects=False)
-    response.raise_for_status()
-    if response.status_code == 302:
-        raise requests.exceptions.HTTPError
+    tululu_raise_for_status(response)
     soup = BeautifulSoup(response.text, 'lxml')
 
     book_title, author = soup.select_one('h1').text.split('::')
