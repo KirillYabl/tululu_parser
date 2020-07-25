@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedirectError(requests.exceptions.BaseHTTPError):
-    def __init__(self, message):
-        super().__init__(message)
+    pass
 
 
 def download_file(url, filename, folder):
@@ -138,9 +137,12 @@ def create_argparser():
     parser.add_argument('--start_page', default=1, type=int, help='Start parsing page.')
     parser.add_argument('--end_page', default=1, type=int, help='End parsing page, inclusive.')
     parser.add_argument('--category_id', default=55, type=int, help='Id of books category.')
-    parser.add_argument('--dest_folder', default='data', type=str, help='The folder in which text files and images will be created.')
-    parser.add_argument('--skip_imgs', action='store_const', const=True, default=False, help='if set, then images will not be saved.')  # flag
-    parser.add_argument('--skip_txt', action='store_const', const=True, default=False, help='if set, then txt files will not be saved.')  # flag
+    parser.add_argument('--dest_folder', default='data', type=str,
+                        help='The folder in which text files and images will be created.')
+    parser.add_argument('--skip_imgs', action='store_const', const=True, default=False,
+                        help='if set, then images will not be saved.')  # flag
+    parser.add_argument('--skip_txt', action='store_const', const=True, default=False,
+                        help='if set, then txt files will not be saved.')  # flag
     # argparse will validate --json_path because this type of argument will try to check file creation immediately
     json_help = 'File name or file path to the file in which the result of the parsing will be written. If the file name does not exist, it will be created. If the folder in file path does not exist, an error will occur.'
     parser.add_argument('--json_path', default='books_info.json', type=argparse.FileType(mode='w'), help=json_help)
