@@ -1,18 +1,23 @@
-import requests
 import os
 import logging
 import urllib
 import json
 import argparse
+import collections
+import time
+import warnings
 
-from bs4 import BeautifulSoup
+import requests
 import pathvalidate
+from bs4 import BeautifulSoup
 from tqdm import tqdm
+from requests.exceptions import HTTPError, ConnectionError, BaseHTTPError
 
 logger = logging.getLogger(__name__)
+warnings.simplefilter("ignore")  # turn off urllib3 warning about SSL
 
 
-class RedirectError(requests.exceptions.BaseHTTPError):
+class RedirectError(BaseHTTPError):
     pass
 
 
@@ -32,7 +37,9 @@ def download_file(url, filename, folder):
     :param folder: str, folder to save (if it does not exist, a folder will be created).
     :return: str, path to the file where the file will be saved.
     """
-    response = requests.get(url, allow_redirects=False)
+    # site has some problems with SSL, before :verify: paraw "allow_redirects=True" decision was used
+    # now temporary (maybe not) "verify=False" decision was used
+    response = requests.get(url, verify=False)
     tululu_raise_for_status(response)
 
     sanitized_folder = pathvalidate.sanitize_filepath(folder)
@@ -58,7 +65,9 @@ def get_tululu_category_page_links(category_id, page_num):
     main_site_url = 'http://tululu.org'
     urls = []
     category_page_url = urllib.parse.urljoin(main_site_url, f'l{category_id}/{page_num}')
-    response = requests.get(category_page_url, allow_redirects=False)
+    # site has some problems with SSL, before :verify: paraw "allow_redirects=True" decision was used
+    # now temporary (maybe not) "verify=False" decision was used
+    response = requests.get(category_page_url, verify=False)
     tululu_raise_for_status(response)
 
     soup = BeautifulSoup(response.text, 'lxml')
@@ -82,9 +91,10 @@ def parse_book(book_url, books_folder_name, images_folder_name, skip_txt, skip_i
     :param skip_imgs: bool, if True cover of the book is not saved
     :return: dict, dict with book params
     """
-    main_site_url = 'http://tululu.org'
     book_id = book_url.split('/')[-2][1:]
-    response = requests.get(book_url, allow_redirects=False)
+    # site has some problems with SSL, before :verify: paraw "allow_redirects=True" decision was used
+    # now temporary (maybe not) "verify=False" decision was used
+    response = requests.get(book_url, verify=False)
     tululu_raise_for_status(response)
     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -113,16 +123,12 @@ def parse_book(book_url, books_folder_name, images_folder_name, skip_txt, skip_i
         )
 
     comments_soup = soup.select('div.texts')
-    comments = []
-    for comment in comments_soup:
-        comments.append(comment.select_one('span').text)
+    comments = [comment.select_one('span').text for comment in comments_soup]
 
     genres_soup = soup.select('span.d_book a')
-    genres = []
-    for genre in genres_soup:
-        genres.append(genre.text)
+    genres = [genre.text for genre in genres_soup]
 
-    book_info = {
+    parsed_book = {
         'title': book_title,
         'author': author,
         'image_src': image_filepath,
@@ -131,7 +137,7 @@ def parse_book(book_url, books_folder_name, images_folder_name, skip_txt, skip_i
         'genres': genres
     }
 
-    return book_info
+    return parsed_book
 
 
 def create_argparser():
@@ -156,36 +162,59 @@ def create_argparser():
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s  %(name)s  %(levelname)s  %(message)s', level=logging.INFO)
 
+    warning_message_template = '{error_name} when trying to download the book "{url}".'
+
+    connection_error_timeout = 10
+    connection_error_timeout_step = 5
+    connection_error_timeout_max = 180
+
     parser = create_argparser()
     namespace = parser.parse_args()
 
     books_folder_name = os.path.join(namespace.dest_folder, 'books')
     image_folder_name = os.path.join(namespace.dest_folder, 'images')
-    site = 'http://tululu.org'
 
     end_page = max(namespace.start_page, namespace.end_page) + 1
 
-    urls = []
-    for book_page in range(namespace.start_page, end_page):
-        urls += get_tululu_category_page_links(namespace.category_id, book_page)
+    urls = [get_tululu_category_page_links(namespace.category_id, book_page) for book_page in
+            range(namespace.start_page, end_page)]
     logger.info(f'{len(urls)} books were founded')
 
-    books_info = []
-    redirect_errors = 0
+    parsed_books = []
+    errors_counter = collections.Counter()
+
     for url in tqdm(urls):
         try:
-            book_info = parse_book(
+            parsed_book = parse_book(
                 book_url=url,
                 books_folder_name=books_folder_name,
                 images_folder_name=image_folder_name,
                 skip_txt=namespace.skip_txt,
                 skip_imgs=namespace.skip_imgs
             )
-            books_info.append(book_info)
+            parsed_books.append(parsed_book)
         except RedirectError:
-            redirect_errors += 1
+            errors_counter['redirect_errors'] += 1
+            logger.warning(warning_message_template.format(error_name='Redirect error', url=url))
+        except HTTPError:
+            errors_counter['http_errors'] += 1
+            logger.warning(warning_message_template.format(error_name='HTTP error', url=url))
+        except ConnectionError:
+            errors_counter['connection_errors'] += 1
+            logger.warning(warning_message_template.format(error_name='Connection error', url=url))
 
-    json.dump(books_info, namespace.json_path, ensure_ascii=False)
+            time.sleep(connection_error_timeout)
 
-    logger.info(f'{len(books_info)} books were downloaded')
-    logger.info(f'{redirect_errors} file upload redirection exceptions')
+            # increase :connection_error_timeout: after every connection_error
+            connection_error_timeout += connection_error_timeout_step
+            connection_error_timeout = min(connection_error_timeout, connection_error_timeout_max)
+
+    json.dump(parsed_books, namespace.json_path, ensure_ascii=False)
+
+    logger.info(f'{len(parsed_books)} books were downloaded')
+    if errors_counter["redirect_errors"]:
+        logger.info(f'{errors_counter["redirect_errors"]} redirect exceptions when uploading files')
+    if errors_counter["http_errors"]:
+        logger.info(f'{errors_counter["http_errors"]} http_errors exceptions when uploading files')
+    if errors_counter["connection_errors"]:
+        logger.info(f'{errors_counter["connection_errors"]} connection_errors exceptions when uploading files')
