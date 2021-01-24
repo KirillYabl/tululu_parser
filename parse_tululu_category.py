@@ -164,10 +164,6 @@ if __name__ == '__main__':
 
     warning_message_template = '{error_name} when trying to download the book "{url}".'
 
-    connection_error_timeout = 10
-    connection_error_timeout_step = 5
-    connection_error_timeout_max = 180
-
     parser = create_argparser()
     namespace = parser.parse_args()
 
@@ -182,6 +178,10 @@ if __name__ == '__main__':
 
     parsed_books = []
     errors_counter = collections.Counter()
+
+    connection_error_timeout = 10
+    connection_error_timeout_step = 5
+    connection_error_timeout_max = 180
 
     for url in tqdm(urls):
         try:
