@@ -185,7 +185,6 @@ if __name__ == '__main__':
     connection_error_timeout_max = 180
 
     for url in tqdm(urls):
-        print(urls)
         try:
             parsed_book = parse_book(
                 book_url=url,
