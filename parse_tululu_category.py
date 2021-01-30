@@ -172,8 +172,9 @@ if __name__ == '__main__':
 
     end_page = max(namespace.start_page, namespace.end_page) + 1
 
-    urls = [get_tululu_category_page_links(namespace.category_id, book_page) for book_page in
-            range(namespace.start_page, end_page)]
+    urls = []
+    for book_page in range(namespace.start_page, end_page):
+        urls += get_tululu_category_page_links(namespace.category_id, book_page)
     logger.info(f'{len(urls)} books were founded')
 
     parsed_books = []
@@ -184,6 +185,7 @@ if __name__ == '__main__':
     connection_error_timeout_max = 180
 
     for url in tqdm(urls):
+        print(urls)
         try:
             parsed_book = parse_book(
                 book_url=url,
